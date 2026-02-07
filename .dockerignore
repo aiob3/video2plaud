@@ -1,0 +1,8 @@
+.prd/
+.abacusai/
+.codellm/
+.vscode/
+copilot-*
+README.md
+LICENSE
+HOMOLOGACAO.md
