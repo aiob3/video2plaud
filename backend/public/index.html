@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<title>Video to Plaud Audio</title>
+<style>
+body{font-family:Inter,system-ui,sans-serif;background:#0b1220;color:#e9eef7;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;padding:20px}
+#card{width:100%;max-width:420px;padding:24px;background:#111827;border:1px solid #1f2937;border-radius:12px;box-shadow:0 10px 40px #0006}
+h1{margin:0 0 12px;font-size:20px;font-weight:700}
+p{margin:0 0 16px;font-size:14px;color:#9ca3af;line-height:1.5}
+button{width:100%;padding:14px;border:0;border-radius:8px;background:#2563eb;color:#fff;font-weight:600;cursor:pointer;font-size:14px;transition:background .2s}
+button:hover:not(:disabled){background:#1d4ed8}
+button:disabled{background:#1f2937;color:#6b7280;cursor:not-allowed}
+#drop{border:2px dashed #374151;border-radius:10px;padding:24px;text-align:center;margin-bottom:16px;transition:border-color .2s;background:#0f172a}
+#drop.drag-over{border-color:#2563eb;background:#1e293b}
+#status{font-size:14px;color:#cbd5e1;margin:12px 0;padding:12px;background:#1e293b;border-radius:8px;min-height:20px;line-height:1.5}
+#status.error{color:#fca5a5;background:#1f1416;border:1px solid #7f1d1d}
+#status.success{color:#86efac;background:#14211a;border:1px solid #166534}
+#status.info{color:#93c5fd;background:#172033;border:1px solid #1e3a8a}
+#progress-bar{width:100%;height:6px;background:#1f2937;border-radius:3px;margin:8px 0;overflow:hidden;display:none}
+#progress-fill{height:100%;background:#2563eb;border-radius:3px;transition:width .3s;width:0}
+#link{margin-top:12px;display:none}
+#error-details{font-size:12px;color:#9ca3af;margin-top:8px;padding:8px;background:#0f172a;border-radius:6px;display:none;max-height:120px;overflow-y:auto}
+a{color:#22d3ee;text-decoration:none;font-weight:600;display:inline-block;padding:12px 20px;background:#164e63;border-radius:8px;transition:background .2s}
+a:hover{background:#155e75}
+input[type="file"]{margin:8px 0 16px;width:100%;padding:8px;background:#1e293b;border:1px solid #374151;border-radius:6px;color:#e9eef7;font-size:13px}
+</style>
+</head>
+<body>
+<div id="card">
+<h1>🎵 Video to Plaud Audio</h1>
+<p>Arraste um vídeo (.mp4/.mov/.mkv) ou clique em escolher arquivo abaixo.</p>
+<div id="drop">📁 Solte o arquivo aqui</div>
+<input id="file" type="file" accept="video/mp4,video/quicktime,video/x-matroska">
+<button id="btn">Enviar e converter</button>
+<div id="progress-bar"><div id="progress-fill"></div></div>
+<div id="status"></div>
+<div id="error-details"></div>
+<div id="link"><a id="download" href="#">⬇️ Baixar áudio</a></div>
+</div>
+<script>
+const fileInput=document.getElementById("file");
+const drop=document.getElementById("drop");
+const btn=document.getElementById("btn");
+const statusEl=document.getElementById("status");
+const linkBox=document.getElementById("link");
+const downloadEl=document.getElementById("download");
+const progressBar=document.getElementById("progress-bar");
+const progressFill=document.getElementById("progress-fill");
+const errorDetails=document.getElementById("error-details");
+let currentJob=null;
+let uploadStartTime=0;
+
+const setStatus=(m,type="info")=>{
+  statusEl.textContent=m;
+  statusEl.className=type;
+  if(!m){
+    statusEl.style.display="none";
+  }else{
+    statusEl.style.display="block";
+  }
+};
+
+const setError=(msg,details)=>{
+  setStatus(msg,"error");
+  if(details){
+    errorDetails.textContent=details;
+    errorDetails.style.display="block";
+  }else{
+    errorDetails.style.display="none";
+  }
+};
+
+const setProgress=(percent)=>{
+  if(percent>0){
+    progressBar.style.display="block";
+    progressFill.style.width=percent+"%";
+  }else{
+    progressBar.style.display="none";
+  }
+};
+
+const enable=()=>btn.disabled=false;
+const disable=()=>btn.disabled=true;
+const pickFile=()=>fileInput.files[0];
+
+const formatFileSize=(bytes)=>{
+  if(bytes<1024)return bytes+" B";
+  if(bytes<1024*1024)return(bytes/1024).toFixed(1)+" KB";
+  return(bytes/(1024*1024)).toFixed(1)+" MB";
+};
+
+const formatDuration=(seconds)=>{
+  const mins=Math.floor(seconds/60);
+  const secs=Math.floor(seconds%60);
+  return `${mins}:${secs.toString().padStart(2,"0")}`;
+};
+
+const handleUpload=async(file)=>{
+  disable();
+  linkBox.style.display="none";
+  errorDetails.style.display="none";
+  uploadStartTime=Date.now();
+
+  setStatus("📤 Enviando arquivo...");
+  setProgress(10);
+
+  const form=new FormData();
+  form.append("file",file);
+
+  try{
+    const up=await fetch("/api/upload",{method:"POST",body:form});
+    const data=await up.json();
+
+    if(!up.ok){
+      const errorMsg=data.message||"Falha no upload";
+      const details=data.details||data.error||"";
+      setError(errorMsg,details);
+      setProgress(0);
+      enable();
+      return;
+    }
+
+    const uploadTime=((Date.now()-uploadStartTime)/1000).toFixed(1);
+    console.log(`Upload concluído: ${data.filename} (${formatFileSize(data.size)}) em ${uploadTime}s`);
+
+    setStatus(`✅ Upload OK: ${data.filename} (${formatFileSize(data.size)}, ${formatDuration(data.duration)})`, "success");
+    setProgress(30);
+
+    setTimeout(()=>startConversion(data,file.name),500);
+  }catch(err){
+    setError("❌ Erro de conexão",err.message);
+    setProgress(0);
+    enable();
+  }
+};
+
+const startConversion=async(meta,filename)=>{
+  setStatus("⚙️ Iniciando conversão...");
+  setProgress(40);
+
+  try{
+    const conv=await fetch("/api/convert",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({path:meta.path,title:filename})
+    });
+    const data=await conv.json();
+
+    if(!conv.ok){
+      const errorMsg=data.message||"Falha ao enfileirar conversão";
+      const details=data.details||data.error||"";
+      setError(errorMsg,details);
+      setProgress(0);
+      enable();
+      return;
+    }
+
+    currentJob=data.jobId;
+    console.log(`Job enfileirado: ${data.jobId}`);
+    setStatus("🔄 Processando conversão...","info");
+    setProgress(50);
+    poll(data.jobId);
+  }catch(err){
+    setError("❌ Erro ao iniciar conversão",err.message);
+    setProgress(0);
+    enable();
+  }
+};
+
+const poll=async(id)=>{
+  try{
+    const res=await fetch(`/api/convert/${id}`);
+    const data=await res.json();
+
+    if(!res.ok){
+      const errorMsg=data.message||"Erro ao consultar status";
+      const details=data.details||data.error||"";
+      setError(errorMsg,details);
+      setProgress(0);
+      enable();
+      return;
+    }
+
+    if(data.status==="failed"){
+      const errorMsg=data.message||"Conversão falhou";
+      const details=data.error||"";
+      setError(errorMsg,details);
+      setProgress(0);
+      enable();
+      return;
+    }
+
+    if(data.status==="active"){
+      const progress=data.progress||50;
+      setProgress(Math.min(50+progress/2,95));
+      setStatus(`🔄 ${data.message||"Processando..."} (${progress}%)`, "info");
+      setTimeout(()=>poll(id),800);
+      return;
+    }
+
+    if(data.status==="waiting"||data.status==="delayed"){
+      setStatus("⏳ Aguardando na fila...","info");
+      setTimeout(()=>poll(id),1500);
+      return;
+    }
+
+    if(data.status==="completed"){
+      const totalTime=((Date.now()-uploadStartTime)/1000).toFixed(1);
+      console.log(`Conversão concluída em ${totalTime}s`);
+      setStatus(`✅ Conversão concluída! (${totalTime}s)`, "success");
+      setProgress(100);
+      linkBox.style.display="block";
+      downloadEl.href=`/api/download/${id}`;
+      enable();
+      return;
+    }
+
+    setStatus(`Status: ${data.status}`,"info");
+    setTimeout(()=>poll(id),1200);
+  }catch(err){
+    setError("❌ Erro ao verificar status",err.message);
+    setProgress(0);
+    enable();
+  }
+};
+
+btn.onclick=()=>{
+  const f=pickFile();
+  if(!f){
+    setError("⚠️ Selecione um arquivo","Escolha um arquivo de vídeo antes de continuar");
+    return;
+  }
+  handleUpload(f);
+};
+
+fileInput.onchange=()=>{
+  setStatus("");
+  linkBox.style.display="none";
+  errorDetails.style.display="none";
+  setProgress(0);
+};
+
+const prevent=(e)=>{e.preventDefault();e.stopPropagation();};
+["dragenter","dragover","dragleave","drop"].forEach((ev)=>drop.addEventListener(ev,prevent));
+
+drop.addEventListener("dragenter",()=>drop.classList.add("drag-over"));
+drop.addEventListener("dragleave",()=>drop.classList.remove("drag-over"));
+drop.addEventListener("drop",(e)=>{
+  drop.classList.remove("drag-over");
+  const f=e.dataTransfer.files[0];
+  if(!f)return;
+  fileInput.files=e.dataTransfer.files;
+  handleUpload(f);
+});
+</script>
+</body>
+</html>

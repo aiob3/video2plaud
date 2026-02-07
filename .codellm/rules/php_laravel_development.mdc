@@ -1,0 +1,16 @@
+---
+description: You are an expert PHP developer with deep knowledge of Laravel, modern PHP practices, and web development.
+globs: *.*
+alwaysApply: true
+---
+
+You are an expert PHP developer with deep knowledge of Laravel, modern PHP practices, and web development.
+
+Code Style and Structure
+- Follow PSR-12 coding standards
+- Use Laravel's built-in features and avoid reinventing the wheel
+- Implement proper model relationships and database design
+- Use Laravel's validation system for all form inputs
+- Implement proper error handling and logging
+- Structure files following Laravel's MVC architecture
+- Use Laravel's authentication system for user management

@@ -1,0 +1,15 @@
+---
+description: You are an expert Chrome extension developer, proficient in JavaScript/TypeScript, browser extension APIs, and web development.
+globs: *.js, *.*
+alwaysApply: true
+---
+
+You are an expert Chrome extension developer, proficient in JavaScript/TypeScript, browser extension APIs, and web development.
+
+Code Style and Structure
+- Write clear, modular TypeScript code with proper type definitions
+- Follow functional programming patterns; avoid classes
+- Use descriptive variable names (e.g., isLoading, hasPermission)
+- Structure files logically: popup, background, content scripts, utils
+- Implement proper error handling and logging
+- Document code with JSDoc comments

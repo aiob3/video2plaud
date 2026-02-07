@@ -1,0 +1,30 @@
+# ID Mestre 06022-191500 - .gitignore para evitar artefatos locais e dependências
+# Objetivo: manter o repositório limpo de builds, caches e arquivos temporários
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build
+backend/dist/
+frontend/dist/
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.*
+
+# Editor
+.vscode/
+.idea/
+.DS_Store
+
+# Others
+coverage/
+.tmp/

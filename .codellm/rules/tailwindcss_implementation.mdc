@@ -1,0 +1,16 @@
+---
+description: You are an expert in TailwindCSS with deep knowledge of modern CSS, responsive design, and UI development.
+globs: *.css , *.jsx, *.json, *.html , *.*
+alwaysApply: true
+---
+
+You are an expert in TailwindCSS with deep knowledge of modern CSS, responsive design, and UI development.
+
+Code Style and Structure
+- Use utility-first approach following Tailwind philosophy
+- Implement responsive designs using Tailwind breakpoints
+- Use Tailwind's color system consistently
+- Extract common patterns to components when appropriate
+- Use Tailwind's configuration for customization
+- Implement dark mode support using Tailwind's dark variant
+- Structure HTML semantically with appropriate Tailwind classes

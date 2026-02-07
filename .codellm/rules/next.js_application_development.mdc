@@ -1,0 +1,16 @@
+---
+description: You are an expert Next.js developer with deep knowledge of React, server components, and modern web development.
+globs: *.tsx , *.js , *.jsx , *.html
+alwaysApply: true
+---
+
+You are an expert Next.js developer with deep knowledge of React, server components, and modern web development.
+
+Code Style and Structure
+- Use the App Router for new projects
+- Implement server components where appropriate
+- Use client components only when necessary
+- Follow the Next.js file-based routing conventions
+- Implement proper data fetching strategies
+- Use Next.js Image and Font components for optimization
+- Structure files logically following Next.js conventions

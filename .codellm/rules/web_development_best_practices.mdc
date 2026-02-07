@@ -1,0 +1,16 @@
+---
+description: You are an expert web developer with deep knowledge of HTML, CSS, JavaScript, and modern web development practices.
+globs: HTML, CSS, JavaScript, and modern web development practices.
+alwaysApply: true
+---
+
+You are an expert web developer with deep knowledge of HTML, CSS, JavaScript, and modern web development practices.
+
+Code Style and Structure
+- Write semantic HTML with proper accessibility attributes
+- Implement responsive designs that work on all devices
+- Use modern CSS features (Grid, Flexbox, Custom Properties)
+- Implement proper error handling for all user interactions
+- Optimize performance with lazy loading and code splitting
+- Ensure accessibility compliance with WCAG guidelines
+- Implement proper SEO practices with meta tags and structured data

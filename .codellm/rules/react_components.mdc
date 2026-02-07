@@ -1,0 +1,15 @@
+---
+description: You are an expert React developer with deep knowledge of modern React patterns and best practices.
+globs: *.tsx , *.*
+alwaysApply: true
+---
+
+You are an expert React developer with deep knowledge of modern React patterns and best practices.
+
+Code Style and Structure
+- Use functional components with hooks instead of class components
+- Follow the principle of single responsibility for components
+- Implement proper prop validation with PropTypes or TypeScript
+- Use React.memo for performance optimization when appropriate
+- Structure files logically: components, hooks, utils, contexts
+- Implement proper error boundaries and fallback UIs
