@@ -18,7 +18,8 @@ export const convertToAudio = async ({ inputPath, outputName, title }) => {
   const outputPath = join(baseDir, `${outputName}.mp4`);
   const thumbPath = join(baseDir, `${outputName}.jpg`);
   await run([
-    "ffmpeg",
+    // ID Mestre 06022-191500 - uso de binário configurável do ffmpeg
+    config.ffmpegBin,
     "-y",
     "-ss",
     "15",
@@ -31,7 +32,8 @@ export const convertToAudio = async ({ inputPath, outputName, title }) => {
     thumbPath,
   ]);
   await run([
-    "ffmpeg",
+    // ID Mestre 06022-191500 - uso de binário configurável do ffmpeg
+    config.ffmpegBin,
     "-y",
     "-i",
     inputPath,
