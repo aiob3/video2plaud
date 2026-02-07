@@ -1,3 +1,4 @@
+// ID Mestre 06022-191500 - convert.js: conversão vídeo→áudio com progresso real via parsing stderr ffmpeg
 import { execFile, spawn } from "child_process";
 import { join } from "path";
 import { config } from "../config/index.js";
@@ -13,51 +14,73 @@ const run = (args) =>
     });
   });
 
-// ID Mestre 06022-191500 - execução com heartbeat de progresso para processos mais longos (ex.: ffmpeg áudio)
-const runWithHeartbeat = (
+// ID Mestre 06022-191500 - parsear time= do stderr do ffmpeg para calcular % real
+const parseTimeFromStderr = (data) => {
+  const match = data.match(/time=(\d+):(\d+):(\d+)\.(\d+)/);
+  if (!match) return null;
+  return (
+    parseInt(match[1], 10) * 3600 +
+    parseInt(match[2], 10) * 60 +
+    parseInt(match[3], 10) +
+    parseInt(match[4], 10) / 100
+  );
+};
+
+// ID Mestre 06022-191500 - execução ffmpeg com progresso real baseado em duração do vídeo
+const runWithRealProgress = (
   args,
   {
-    start = 0,
-    end = 90,
-    intervalMs = 2000,
-    stage = "convert-audio",
-    detail = "Convertendo áudio para AAC",
+    durationSec = 0,
+    rangeStart = 0,
+    rangeEnd = 95,
+    stage,
+    detail,
     reportProgress,
   },
 ) =>
   new Promise((resolve, reject) => {
-    let current = start;
-    let interval = null;
+    let lastReportedPercent = rangeStart;
 
-    const tick = async () => {
-      if (!reportProgress) return;
-      // incrementa de forma suave até end-1 para não conflitar com conclusão
-      const step = Math.max(1, Math.floor((end - start) / 5));
-      current = Math.min(end - 1, current + step);
-      try {
-        await reportProgress({ percent: current, stage, detail });
-      } catch (_) {
-        // não interrompe em caso de falha de progress
+    const child = spawn(args[0], args.slice(1), {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    const onData = async (chunk) => {
+      if (!reportProgress || durationSec <= 0) return;
+      const text = chunk.toString();
+      const currentTime = parseTimeFromStderr(text);
+      if (currentTime === null) return;
+
+      const ratio = Math.min(currentTime / durationSec, 1);
+      const percentRaw = rangeStart + ratio * (rangeEnd - rangeStart);
+      const percent = Math.min(Math.floor(percentRaw), rangeEnd);
+
+      if (percent > lastReportedPercent) {
+        lastReportedPercent = percent;
+        const elapsed = formatTime(currentTime);
+        const total = formatTime(durationSec);
+        try {
+          await reportProgress({
+            percent,
+            stage,
+            detail: `${detail} — ${elapsed} / ${total}`,
+          });
+        } catch (_) {}
       }
     };
 
-    if (reportProgress) {
-      interval = setInterval(tick, intervalMs);
-    }
+    child.stderr.on("data", onData);
+    child.stdout.on("data", onData);
 
-    const child = spawn(args[0], args.slice(1), {
-      stdio: ["ignore", "ignore", "inherit"],
-    });
-
-    child.on("error", (err) => {
-      if (interval) clearInterval(interval);
-      reject(err);
-    });
+    child.on("error", (err) => reject(err));
 
     child.on("exit", (code) => {
-      if (interval) clearInterval(interval);
       if (reportProgress) {
-        reportProgress({ percent: end, stage, detail: "Finalizando contêiner MP4" }).catch(() => {});
+        reportProgress({
+          percent: rangeEnd,
+          stage,
+          detail: `${detail} — finalizado`,
+        }).catch(() => {});
       }
       if (code === 0) {
         resolve();
@@ -67,28 +90,45 @@ const runWithHeartbeat = (
     });
   });
 
+const formatTime = (sec) => {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+};
+
 export const convertToAudio = async ({
   inputPath,
   outputName,
   title,
+  durationSec = 0,
   reportProgress = () => {},
 }) => {
-  // ID Mestre 06022-191500 - reportar progresso para Bull e UI com estágios descritivos
-  const safeProgress = async (percent, stage, detail) => {
+  // ID Mestre 06022-191500 - reportar progresso estruturado para Bull/UI
+  const safeProgress = async (payload) => {
     try {
-      await reportProgress({ percent, stage, detail });
-    } catch (_) {
-      // ignora falha de progresso para não interromper conversão
-    }
+      await reportProgress(payload);
+    } catch (_) {}
   };
 
   const baseDir = config.uploadDir;
   const outputPath = join(baseDir, `${outputName}.mp4`);
   const thumbPath = join(baseDir, `${outputName}.jpg`);
 
-  await safeProgress(5, "prepare-thumb", "Preparando captura de thumbnail");
+  // ── Etapa 1: Validação ──────────────────────────────────────────
+  await safeProgress({
+    percent: 2,
+    stage: "validating",
+    detail: "Validando arquivo de entrada",
+  });
+
+  // ── Etapa 2: Thumbnail ──────────────────────────────────────────
+  await safeProgress({
+    percent: 5,
+    stage: "thumbnail",
+    detail: "Capturando thumbnail aos 15s",
+  });
+
   await run([
-    // ID Mestre 06022-191500 - uso de binário configurável do ffmpeg
     config.ffmpegBin,
     "-y",
     "-ss",
@@ -102,10 +142,21 @@ export const convertToAudio = async ({
     thumbPath,
   ]);
 
-  await safeProgress(50, "thumb-ready", "Thumbnail capturada aos 15s");
-  await runWithHeartbeat(
+  await safeProgress({
+    percent: 10,
+    stage: "thumbnail-done",
+    detail: "📸 Thumbnail gerada com sucesso",
+  });
+
+  // ── Etapa 3: Conversão de áudio (progresso real 10–95%) ─────────
+  await safeProgress({
+    percent: 11,
+    stage: "convert-audio",
+    detail: "Iniciando extração de áudio AAC 128k / 44.1kHz",
+  });
+
+  await runWithRealProgress(
     [
-      // ID Mestre 06022-191500 - uso de binário configurável do ffmpeg
       config.ffmpegBin,
       "-y",
       "-i",
@@ -124,16 +175,31 @@ export const convertToAudio = async ({
       outputPath,
     ],
     {
-      start: 50,
-      end: 95,
-      intervalMs: 2000,
+      durationSec,
+      rangeStart: 11,
+      rangeEnd: 95,
       stage: "convert-audio",
-      detail: "Convertendo áudio para AAC 128k/44.1k com faststart",
+      detail: "🎧 Extraindo áudio AAC",
       reportProgress: safeProgress,
     },
   );
 
-  await safeProgress(100, "done", "Conversão concluída");
+  // ── Etapa 4: Finalização ────────────────────────────────────────
+  await safeProgress({
+    percent: 96,
+    stage: "faststart",
+    detail: "Movendo atom moov para início do arquivo (faststart)",
+  });
+  await safeProgress({
+    percent: 98,
+    stage: "metadata",
+    detail: `Gravando metadados: "${title || "(sem título)"}"`,
+  });
+  await safeProgress({
+    percent: 100,
+    stage: "done",
+    detail: "✅ Conversão concluída com sucesso",
+  });
 
   return { outputPath, thumbPath, outputName };
 };

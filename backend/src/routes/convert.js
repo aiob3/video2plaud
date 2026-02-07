@@ -6,7 +6,7 @@ const router = express.Router();
 router.post("/", async (req, res) => {
   const startTime = Date.now();
   try {
-    const { path, title } = req.body || {};
+    const { path, title, duration } = req.body || {};
     if (!path) {
       const errorDetail = {
         error: "path required",
@@ -22,7 +22,11 @@ router.post("/", async (req, res) => {
     console.log(
       `[CONVERT_START] Path: ${path}, Title: ${title || "sem título"}`,
     );
-    const job = await enqueueConvert({ inputPath: path, title: title || "" });
+    const job = await enqueueConvert({
+      inputPath: path,
+      title: title || "",
+      durationSec: Number(duration) || 0,
+    });
     const elapsed = Date.now() - startTime;
 
     console.log(`[CONVERT_ENQUEUED] JobId: ${job.id}, Time: ${elapsed}ms`);
