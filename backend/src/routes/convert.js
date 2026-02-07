@@ -12,14 +12,16 @@ router.post("/", async (req, res) => {
         error: "path required",
         message: "Caminho do arquivo não fornecido",
         timestamp: new Date().toISOString(),
-        details: "O campo 'path' é obrigatório para iniciar a conversão"
+        details: "O campo 'path' é obrigatório para iniciar a conversão",
       };
       console.error("[CONVERT_ERROR]", JSON.stringify(errorDetail));
       res.status(400).json(errorDetail);
       return;
     }
 
-    console.log(`[CONVERT_START] Path: ${path}, Title: ${title || "sem título"}`);
+    console.log(
+      `[CONVERT_START] Path: ${path}, Title: ${title || "sem título"}`,
+    );
     const job = await enqueueConvert({ inputPath: path, title: title || "" });
     const elapsed = Date.now() - startTime;
 
@@ -27,14 +29,14 @@ router.post("/", async (req, res) => {
     res.status(202).json({
       jobId: job.id,
       message: "Conversão iniciada com sucesso",
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   } catch (err) {
     const errorDetail = {
       error: "enqueue failed",
       message: err.message,
       timestamp: new Date().toISOString(),
-      details: err.stack
+      details: err.stack,
     };
     console.error("[CONVERT_EXCEPTION]", JSON.stringify(errorDetail));
     res.status(500).json(errorDetail);
@@ -49,7 +51,7 @@ router.get("/:id", async (req, res) => {
         error: "not found",
         message: "Job de conversão não encontrado",
         timestamp: new Date().toISOString(),
-        jobId: req.params.id
+        jobId: req.params.id,
       };
       console.error("[JOB_NOT_FOUND]", JSON.stringify(errorDetail));
       res.status(404).json(errorDetail);
@@ -59,28 +61,34 @@ router.get("/:id", async (req, res) => {
     const state = await job.getState();
     const progress = job.progress() || 0;
 
-    console.log(`[JOB_STATUS] JobId: ${req.params.id}, State: ${state}, Progress: ${progress}%`);
+    console.log(
+      `[JOB_STATUS] JobId: ${req.params.id}, State: ${state}, Progress: ${progress}%`,
+    );
 
     if (state === "completed") {
       const result = await job.finished();
-      console.log(`[JOB_COMPLETED] JobId: ${req.params.id}, Output: ${result.outputPath}`);
+      console.log(
+        `[JOB_COMPLETED] JobId: ${req.params.id}, Output: ${result.outputPath}`,
+      );
       res.status(200).json({
         status: state,
         result,
         message: "Conversão concluída com sucesso",
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
       return;
     }
 
     if (state === "failed") {
       const failedReason = job.failedReason;
-      console.error(`[JOB_FAILED] JobId: ${req.params.id}, Reason: ${failedReason}`);
+      console.error(
+        `[JOB_FAILED] JobId: ${req.params.id}, Reason: ${failedReason}`,
+      );
       res.status(200).json({
         status: state,
         error: failedReason,
         message: "Conversão falhou",
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
       return;
     }
@@ -88,8 +96,9 @@ router.get("/:id", async (req, res) => {
     res.status(200).json({
       status: state,
       progress,
-      message: state === "active" ? "Processando..." : "Aguardando processamento",
-      timestamp: new Date().toISOString()
+      message:
+        state === "active" ? "Processando..." : "Aguardando processamento",
+      timestamp: new Date().toISOString(),
     });
   } catch (err) {
     const errorDetail = {
@@ -97,7 +106,7 @@ router.get("/:id", async (req, res) => {
       message: err.message,
       timestamp: new Date().toISOString(),
       details: err.stack,
-      jobId: req.params.id
+      jobId: req.params.id,
     };
     console.error("[JOB_STATUS_EXCEPTION]", JSON.stringify(errorDetail));
     res.status(500).json(errorDetail);

@@ -13,7 +13,12 @@ const run = (args) =>
     });
   });
 
-export const convertToAudio = async ({ inputPath, outputName, title, reportProgress = () => {} }) => {
+export const convertToAudio = async ({
+  inputPath,
+  outputName,
+  title,
+  reportProgress = () => {},
+}) => {
   // ID Mestre 06022-191500 - reportar progresso para Bull e UI
   const safeProgress = (value) => {
     try {
