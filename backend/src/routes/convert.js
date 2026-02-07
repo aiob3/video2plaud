@@ -59,10 +59,22 @@ router.get("/:id", async (req, res) => {
     }
 
     const state = await job.getState();
-    const progress = job.progress() || 0;
+    const rawProgress = job.progress() || 0;
+
+    let progress = 0;
+    let stage = undefined;
+    let detail = undefined;
+
+    if (typeof rawProgress === "number") {
+      progress = rawProgress;
+    } else if (typeof rawProgress === "object" && rawProgress !== null) {
+      progress = Number(rawProgress.percent ?? rawProgress.progress ?? 0);
+      stage = rawProgress.stage;
+      detail = rawProgress.detail;
+    }
 
     console.log(
-      `[JOB_STATUS] JobId: ${req.params.id}, State: ${state}, Progress: ${progress}%`,
+      `[JOB_STATUS] JobId: ${req.params.id}, State: ${state}, Progress: ${progress}%, Stage: ${stage || "n/a"}, Detail: ${detail || ""}`,
     );
 
     if (state === "completed") {
@@ -96,6 +108,8 @@ router.get("/:id", async (req, res) => {
     res.status(200).json({
       status: state,
       progress,
+      stage,
+      detail,
       message:
         state === "active" ? "Processando..." : "Aguardando processamento",
       timestamp: new Date().toISOString(),
