@@ -13,10 +13,21 @@ const run = (args) =>
     });
   });
 
-export const convertToAudio = async ({ inputPath, outputName, title }) => {
+export const convertToAudio = async ({ inputPath, outputName, title, reportProgress = () => {} }) => {
+  // ID Mestre 06022-191500 - reportar progresso para Bull e UI
+  const safeProgress = (value) => {
+    try {
+      reportProgress(value);
+    } catch (_) {
+      // ignora falha de progresso para não interromper conversão
+    }
+  };
+
   const baseDir = config.uploadDir;
   const outputPath = join(baseDir, `${outputName}.mp4`);
   const thumbPath = join(baseDir, `${outputName}.jpg`);
+
+  safeProgress(5);
   await run([
     // ID Mestre 06022-191500 - uso de binário configurável do ffmpeg
     config.ffmpegBin,
@@ -31,6 +42,8 @@ export const convertToAudio = async ({ inputPath, outputName, title }) => {
     "2",
     thumbPath,
   ]);
+
+  safeProgress(50);
   await run([
     // ID Mestre 06022-191500 - uso de binário configurável do ffmpeg
     config.ffmpegBin,
@@ -50,5 +63,9 @@ export const convertToAudio = async ({ inputPath, outputName, title }) => {
     `title=${title || ""}`,
     outputPath,
   ]);
+
+  safeProgress(95);
+  safeProgress(100);
+
   return { outputPath, thumbPath, outputName };
 };

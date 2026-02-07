@@ -57,7 +57,7 @@ router.get("/:id", async (req, res) => {
     }
 
     const state = await job.getState();
-    const progress = job.progress();
+    const progress = job.progress() || 0;
 
     console.log(`[JOB_STATUS] JobId: ${req.params.id}, State: ${state}, Progress: ${progress}%`);
 
@@ -87,7 +87,7 @@ router.get("/:id", async (req, res) => {
 
     res.status(200).json({
       status: state,
-      progress: progress || 0,
+      progress,
       message: state === "active" ? "Processando..." : "Aguardando processamento",
       timestamp: new Date().toISOString()
     });
