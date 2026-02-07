@@ -12,8 +12,8 @@ export const startWorker = () => {
     const { inputPath, title } = job.data;
     const outputName = job.id.toString();
     // ID Mestre 06022-191500 - reportar progresso granular para a fila
-    const reportProgress = (value) => job.progress(value);
-    reportProgress(1);
+    const reportProgress = async (value) => job.progress(value);
+    await reportProgress(1);
     return convertToAudio({ inputPath, outputName, title, reportProgress });
   });
 };
