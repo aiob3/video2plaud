@@ -3,16 +3,21 @@
 **ID Mestre:** 06022-191500
 
 ## Resumo 🎯
+
 Este documento descreve a solução implementada para prover progresso visual 1-a-1 durante a conversão de vídeo → áudio (FFmpeg). A solução combina: (1) parsing do stderr do FFmpeg para obter `time=` real da execução, (2) mapeamento da `time` para percentuais (11–95%), (3) envio de payloads estruturados `{ percent, stage, detail }` via `job.progress()` do Bull, e (4) uma UI generativa (frontend) que consome esses payloads e mostra uma barra, timeline de logs e mensagens amigáveis.
 
+**Objetivo Expandido:** Este arquivo foi gerado com o objetivo não apenas de documentar a evolução da funcionalidade, mas também de estabelecer uma **cadeia de instruções reutilizável em formato de snippets** que possa ser replicada para outras demandas que se alinhem à necessidade de obter feedback realista sobre a evolução do estado de processamento, independente de sua fonte de entrada ou saída. O padrão descrito é aplicável tanto ao cenário original (conversão vídeo → áudio) quanto a cenários de **ingestão em lote de [N] arquivos** (ex.: processamento paralelo de múltiplos `.md`, PDFs, imagens ou outros formatos), permitindo que o mesmo pipeline de progresso 1-a-1 seja estendido para workloads em massa com rastreamento granular por item.
+
 ## Objetivo
+
 - Evitar barreiras na UI (barra travada em 50%).
-- Entregar feedback progressivo e explicativo ao usuário (estágio + detalhe). 
+- Entregar feedback progressivo e explicativo ao usuário (estágio + detalhe).
 - Permitir "componentização máxima" para fácil reutilização e testes.
 
 ---
 
 ## Arquivos alterados (principais)
+
 - `backend/services/convert.js` — `runWithRealProgress` que parseia `time=` do stderr e envia payloads periódicos.
 - `backend/queue/worker.js` — worker envia `reportProgress` e recebe `durationSec` no job payload.
 - `backend/src/routes/convert.js` — aceita `duration` no POST para enfileirar o job.
@@ -21,30 +26,35 @@ Este documento descreve a solução implementada para prover progresso visual 1-
 ---
 
 ## Procedimento para replicar (branch `feature/recurso`)
+
 1. Crie a branch:
 
 ```bash
 git checkout -b feature/recurso
 ```
 
-2. Alterações backend (resumo):
+   a. Alterações backend (resumo):
+
 - Implementar `runWithRealProgress(args, { durationSec, rangeStart, rangeEnd, stage, detail, reportProgress })`:
   - spawn FFmpeg com `stdio: ["ignore","pipe","pipe"]`.
   - Parsear `stderr` por `time=HH:MM:SS.xx` (regex) → `currentTimeSec`.
   - Calcular `ratio = currentTimeSec / durationSec` e `percent = rangeStart + ratio * (rangeEnd-rangeStart)`.
-  - Enviar `await reportProgress({ percent, stage, detail: `${detail} — ${elapsed} / ${total}` })` apenas quando `percent` aumenta (1-a-1).
+  - Enviar `await reportProgress({ percent, stage, detail:`${detail} — ${elapsed} / ${total}`})` apenas quando `percent` aumenta (1-a-1).
 - Garantir fallback para heartbeat caso parsing não funcione.
 
-3. Alterações queue/worker:
+  b. Alterações queue/worker:
+
 - Ao enfileirar, inclua `durationSec` no payload (vindo do upload ou de `ffprobe`).
 - Dentro do `process` do worker, passe `reportProgress` que faz `job.progress(payload)`.
 
-4. Alterações frontend:
+  c. Alterações frontend:
+
 - O upload retorna `duration` e `path`. Envie `duration` ao POST `/api/convert`.
 - Poll `/api/convert/:id`: a resposta inclui `{ status, progress, stage, detail }`.
 - Atualize componente `Progress` para consumir `percent, stage, detail` e exibir: grande `%`, `stageLabel`, `detail`, e entrada de timeline (nova entrada ao mudar `stage`).
 
-5. Testes locais:
+  d. Testes locais:
+
 - Rebuild: `docker compose build --no-cache && docker compose up -d`
 - Upload: `curl -F "file=@/path/video.mp4" http://localhost:3001/api/upload`
 - Iniciar conversão: `curl -X POST -H "Content-Type: application/json" -d '{"path":"/app/uploads/temp/xxx.mp4","title":"video.mp4","duration":1271.96}' http://localhost:3001/api/convert`
@@ -57,7 +67,7 @@ git checkout -b feature/recurso
 
 ### Worker (orquestração)
 
-```
+```pseudo
 procedure workerProcess(job):
     payload = job.data
     reportProgress = (p) -> job.progress(p)
@@ -73,7 +83,7 @@ procedure workerProcess(job):
 
 ### convertToAudio (procedimento principal)
 
-```
+```pseudo
 procedure convertToAudio({ inputPath, outputName, title, durationSec, reportProgress }):
     safeReport = (p) -> try reportProgress(p) catch ignore
 
@@ -98,7 +108,7 @@ procedure convertToAudio({ inputPath, outputName, title, durationSec, reportProg
 
 ### runWithRealProgress (núcleo)
 
-```
+```pseudo
 function runWithRealProgress(args, { durationSec, rangeStart, rangeEnd, stage, detail, reportProgress }):
     lastPercent = rangeStart
     spawnProcess(args)
@@ -157,6 +167,7 @@ export async function runWithRealProgress(args, {durationSec, rangeStart, rangeE
 ---
 
 ## Observações operacionais e testes
+
 - Defina `FFMPEG_BIN`/`FFPROBE_BIN` se os binários não estiverem no PATH do container.
 - Caso parsing falhe, o módulo pode cair para um `heartbeat` incremental (interval baseado em heurística).
 - Teste com vídeos longos (>1min) para validar step resolution.
@@ -164,6 +175,7 @@ export async function runWithRealProgress(args, {durationSec, rangeStart, rangeE
 ---
 
 ## Próximos passos recomendados
+
 - Extrair `runWithRealProgress` como módulo testável com unit tests que simulam streams.
 - Adicionar testes E2E (upload -> convert -> download) com arquivos "fake" (curtos) em CI.
 - Ajustar UI para mostrar micro-steps (ex.: barras internas) e animações por `stage`.

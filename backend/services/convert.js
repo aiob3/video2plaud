@@ -1,7 +1,8 @@
-// ID Mestre 06022-191500 - convert.js: conversão vídeo→áudio com progresso real via parsing stderr ffmpeg
-import { execFile, spawn } from "child_process";
+// ID Mestre 06022-191500 - convert.js: conversão vídeo→áudio with externalized ffmpeg progress logic
+import { execFile } from "child_process";
 import { join } from "path";
 import { config } from "../config/index.js";
+import { runWithRealProgress } from "./ffmpegProgress.js";
 
 const run = (args) =>
   new Promise((resolve, reject) => {
@@ -13,88 +14,6 @@ const run = (args) =>
       resolve();
     });
   });
-
-// ID Mestre 06022-191500 - parsear time= do stderr do ffmpeg para calcular % real
-const parseTimeFromStderr = (data) => {
-  const match = data.match(/time=(\d+):(\d+):(\d+)\.(\d+)/);
-  if (!match) return null;
-  return (
-    parseInt(match[1], 10) * 3600 +
-    parseInt(match[2], 10) * 60 +
-    parseInt(match[3], 10) +
-    parseInt(match[4], 10) / 100
-  );
-};
-
-// ID Mestre 06022-191500 - execução ffmpeg com progresso real baseado em duração do vídeo
-const runWithRealProgress = (
-  args,
-  {
-    durationSec = 0,
-    rangeStart = 0,
-    rangeEnd = 95,
-    stage,
-    detail,
-    reportProgress,
-  },
-) =>
-  new Promise((resolve, reject) => {
-    let lastReportedPercent = rangeStart;
-
-    const child = spawn(args[0], args.slice(1), {
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-
-    const onData = async (chunk) => {
-      if (!reportProgress || durationSec <= 0) return;
-      const text = chunk.toString();
-      const currentTime = parseTimeFromStderr(text);
-      if (currentTime === null) return;
-
-      const ratio = Math.min(currentTime / durationSec, 1);
-      const percentRaw = rangeStart + ratio * (rangeEnd - rangeStart);
-      const percent = Math.min(Math.floor(percentRaw), rangeEnd);
-
-      if (percent > lastReportedPercent) {
-        lastReportedPercent = percent;
-        const elapsed = formatTime(currentTime);
-        const total = formatTime(durationSec);
-        try {
-          await reportProgress({
-            percent,
-            stage,
-            detail: `${detail} — ${elapsed} / ${total}`,
-          });
-        } catch (_) {}
-      }
-    };
-
-    child.stderr.on("data", onData);
-    child.stdout.on("data", onData);
-
-    child.on("error", (err) => reject(err));
-
-    child.on("exit", (code) => {
-      if (reportProgress) {
-        reportProgress({
-          percent: rangeEnd,
-          stage,
-          detail: `${detail} — finalizado`,
-        }).catch(() => {});
-      }
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`${args[0]} exited with code ${code}`));
-      }
-    });
-  });
-
-const formatTime = (sec) => {
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
-};
 
 export const convertToAudio = async ({
   inputPath,
